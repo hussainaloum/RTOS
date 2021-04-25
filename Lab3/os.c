@@ -12,7 +12,10 @@
 // function definitions in osasm.s
 void StartOS(void);
 
+//---MyCode---
 void static sleeptimer(void);
+void static runperiodicevents(void);
+//---MyCodeEnd---
 
 #define NUMTHREADS  6        // maximum number of threads
 #define NUMPERIODIC 2        // maximum number of periodic threads
@@ -44,7 +47,10 @@ void OS_Init(void){
   DisableInterrupts();
   BSP_Clock_InitFastest();// set processor clock to fastest speed
   // perform any initializations needed
-	BSP_PeriodicTask_Init(sleeptimer, 1000, 3);
+	//---MyCode---
+	BSP_PeriodicTask_Init(runperiodicevents, 1000, 2);
+	//BSP_PeriodicTask_Init(sleeptimer,1000,3);
+	//---MyCodeEnd---
 }
 
 void SetInitialStack(int i){
@@ -80,7 +86,7 @@ int OS_AddThreads(void(*thread0)(void),
                   void(*thread5)(void)){
   // **similar to Lab 2. initialize as not blocked, not sleeping****
 										//-----My Code-----
-int32_t status;
+	int32_t status;
 	status = StartCritical();
 	tcbs[0].next = &tcbs[1];	//0 points to 1
 	tcbs[1].next = &tcbs[2];	//1 points to 2
@@ -122,16 +128,30 @@ int32_t status;
 // These threads can call OS_Signal
 // In Lab 3 this will be called exactly twice
 //-----My Code-----
-void (*PtTask0)(void);
-uint32_t Counter[1];
+
+int32_t PeriodicThread_index = 0;
+
+struct PeriodicThreads{
+	void (*task)(void);
+	int32_t period;
+	int32_t counter;
+};
+
+typedef struct PeriodicThreads PeriodicThreads;
+PeriodicThreads PeriodicT[NUMPERIODIC];
+
 //-----End My Code-----
 int OS_AddPeriodicEventThread(void(*thread)(void), uint32_t period){
 // ****IMPLEMENT THIS****
 		//-----My Code-----
 		int32_t status;
 		status = StartCritical();
-		PtTask0 = thread;
-		Counter[0] = period;
+	PeriodicT[PeriodicThread_index].task = *thread;
+	PeriodicT[PeriodicThread_index].period = period;
+	PeriodicT[PeriodicThread_index].counter = period;
+	
+	PeriodicThread_index++;					//Since OS_AddPeriodicEventThread is called exactly
+																	// two times, this line is sufficient
 		EndCritical(status);
 //-----End My Code-----
   return 1;
@@ -141,8 +161,26 @@ int OS_AddPeriodicEventThread(void(*thread)(void), uint32_t period){
 void static runperiodicevents(void){
 // ****IMPLEMENT THIS****
 // **RUN PERIODIC THREADS, DECREMENT SLEEP COUNTERS
-
+	//---MyCode---
+	//the job of this function is to decrement the counter for periodic interrupt
+	int32_t index;
+	int32_t i;
+		
+	sleeptimer();			//Decrement sleep counters
+	for( index=0; index<NUMPERIODIC; index++){
+		
+		PeriodicT[index].counter--;						//decrement the counter in PeriodicT once
+		
+		if(PeriodicT[index].counter == 0){
+			PeriodicT[index].task();							//Run the task
+			PeriodicT[index].counter = PeriodicT[index].period;
+		}
+		
+				
+	}
+//---MyCodeEnd---
 }
+
 
 //---MyCode---
 void static sleeptimer(void){
@@ -155,6 +193,7 @@ void static sleeptimer(void){
 
 }
 //---MyCodeEnd---
+
 
 //******** OS_Launch ***************
 // Start the scheduler, enable interrupts
@@ -206,7 +245,6 @@ void OS_Sleep(uint32_t sleepTime){
 // suspend, stops running
 	//---MyCode---
 	RunPt->sleep = sleepTime;
-	sleeptimer();
 	OS_Suspend();
 }
 
