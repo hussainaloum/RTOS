@@ -6,4 +6,4 @@ Demonstrating multithreading and the use of low-level schedulers
 ---Work in progress---
 
 Developed using Keil uVision IDE  
-Microcontroller: 32-bit TI TM4C123GH6PM
+Microcontroller: ARM Cortex-M4F 32-bit TI TM4C123GH6PM
